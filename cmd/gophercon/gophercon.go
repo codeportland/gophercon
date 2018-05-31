@@ -3,24 +3,63 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/ccp-codex/gophercon/pkg/routing"
 	"github.com/ccp-codex/gophercon/pkg/webserver"
+	"github.com/ccp-codex/gophercon/version"
 )
 
 // go run ./cmd/gophercon/gophercon.go
+// curl -i http://127.0.0.1:8000/home
 func main() {
-	log.Printf("Service is starting...")
+	log.Printf(
+		"Service is starting, version is %s, commit is %s, time is %s...",
+		version.Release, version.Commit, version.BuildTime,
+	)
 
-	// todo: you can also use github.com/kelsey/hightower/envconfig
+	shutdown := make(chan error, 2)
+
+	// you can also use github.com/kelseyhightower/envconfig
 	// to keep your config more structured
-	port := os.Getenv("SERVICE_PORT")
+	port := os.Getenv("PORT")
 	if len(port) == 0 {
-		log.Fatal("Service port was not defined")
+		log.Fatal("Service port wasn't set")
 	}
 
 	r := routing.BaseRouter()
 	ws := webserver.New("", port, r)
+	go func() {
+		err := ws.Start()
+		shutdown <- err
+	}()
 
-	log.Fatal(ws.Start())
+	internalPort := os.Getenv("INTERNAL_PORT")
+	if len(internalPort) == 0 {
+		log.Fatal("Internal port wasn't set")
+	}
+	diagnosticsRouter := routing.DiagnosticsRouter()
+	diagnosticsServer := webserver.New(
+		"", internalPort, diagnosticsRouter,
+	)
+	go func() {
+		err := diagnosticsServer.Start()
+		shutdown <- err
+	}()
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case killSignal := <-interrupt:
+		log.Printf("Got %s. Stopping...", killSignal)
+	case err := <-shutdown:
+		log.Printf("Got an error '%s'. Stopping...", err)
+	}
+
+	log.Print(ws.Stop())
+	log.Print(diagnosticsServer.Stop())
+
+	// stop extra tasks ...
 }
