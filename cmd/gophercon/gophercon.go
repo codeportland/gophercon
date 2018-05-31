@@ -1,25 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/ccp-codex/gophercon/pkg/routing"
 )
 
 // go run ./cmd/gophercon/gophercon.go
 func main() {
 	log.Printf("Service is starting...")
 
-	r := mux.NewRouter()
-	r.HandleFunc("/home", homeHandler()).Methods(http.MethodGet)
-	http.ListenAndServe(":8000", r)
-}
+	r := routing.BaseRouter()
 
-func homeHandler() func(w http.ResponseWriter, _ *http.Request) {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		log.Printf("Request is processing...")
-		fmt.Fprint(w, "Hello! Your request was processed.")
-	}
+	http.ListenAndServe(":8000", r)
 }
