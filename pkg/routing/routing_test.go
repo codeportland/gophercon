@@ -20,6 +20,7 @@ func TestBaseRouter(t *testing.T) {
 		log.Fatal(err)
 	}
 
+	// todo: you can use testify library instead
 	if res.StatusCode != http.StatusOK {
 		t.Errorf("Wrong status code %d (%d expected)", res.StatusCode, http.StatusOK)
 	}
